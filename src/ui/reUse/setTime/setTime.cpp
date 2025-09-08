@@ -1,4 +1,5 @@
 #include "setTime.h"
+#include "rtcMem.h"
 
 int setTimeMinute = 0;
 int setTimeHour = 0;
@@ -11,7 +12,7 @@ int fourNumber = 0;
 
 #define CLOCK_HEIGHT 100
 #define INDEX_INIT_X 20
-#define INDEX_INIT_Y CLOCK_HEIGHT + 7
+#define INDEX_INIT_Y (CLOCK_HEIGHT + 7)
 #define INDEX_JUMP 40
 #define INDEX_JUMP_MIDDLE 33
 #define SET_TIME_FONT getFont("Mono33")
@@ -20,8 +21,6 @@ int fourNumber = 0;
 
 void drawIndex(int x, int y)
 {
-    // dis->drawPixel(x, y, SCBlack);
-    // dis->drawCircle(x, y, 10, SCBlack);
     dis->fillTriangle(x, y, x + INDEX_LINE_WIDTH, y + INDEX_LINE_WIDTH, x - INDEX_LINE_WIDTH, y + INDEX_LINE_WIDTH, SCBlack);
 }
 
@@ -29,13 +28,14 @@ void drawThings()
 {
     dis->fillScreen(SCWhite);
     uint16_t h = CLOCK_HEIGHT;
-    writeTextCenterReplaceBack(String(oneNumber) + String(twoNumber) + ":" + String(threeNumber) + String(fourNumber), h, SCBlack);
+    writeTextCenterReplaceBack(
+        String(oneNumber) + String(twoNumber) + ":" + String(threeNumber) + String(fourNumber),
+        h, SCBlack);
 
     int x = INDEX_INIT_X;
     int y = INDEX_INIT_Y;
     x = x + (INDEX_JUMP * indexNumber);
-    if (indexNumber > 1)
-    {
+    if (indexNumber > 1) {
         x = x + INDEX_JUMP_MIDDLE;
     }
     drawIndex(x, y);
@@ -46,11 +46,11 @@ void drawThings()
 void initSetTime()
 {
     String hour = String(setTimeHour);
-    while(hour.length() < 2) {
+    while (hour.length() < 2) {
         hour = "0" + hour;
     }
     String minute = String(setTimeMinute);
-    while(minute.length() < 2) {
+    while (minute.length() < 2) {
         minute = "0" + minute;
     }
     oneNumber = String(hour.charAt(0)).toInt();
@@ -67,7 +67,7 @@ void checkMaxMinSetTime()
     checkMaxMin(&indexNumber, 3);
 
     checkMaxMin(&oneNumber, 2);   // Hour 1
-    if(oneNumber <= 1) {
+    if (oneNumber <= 1) {
         checkMaxMin(&twoNumber, 9);   // Hour 2
     } else {
         checkMaxMin(&twoNumber, 3);
@@ -78,26 +78,18 @@ void checkMaxMinSetTime()
 
 void addNumbers(bool up)
 {
-    int number = 1;
-    if (up == false)
-    {
-        number = -1;
+    int number = up ? 1 : -1;
+    if (indexNumber == 0) {
+        oneNumber += number;
     }
-    if (indexNumber == 0)
-    {
-        oneNumber = oneNumber + number;
+    if (indexNumber == 1) {
+        twoNumber += number;
     }
-    if (indexNumber == 1)
-    {
-        twoNumber = twoNumber + number;
+    if (indexNumber == 2) {
+        threeNumber += number;
     }
-    if (indexNumber == 2)
-    {
-        threeNumber = threeNumber + number;
-    }
-    if (indexNumber == 3)
-    {
-        fourNumber = fourNumber + number;
+    if (indexNumber == 3) {
+        fourNumber += number;
     }
     checkMaxMinSetTime();
     drawThings();
@@ -106,27 +98,19 @@ void addNumbers(bool up)
 void loopSetTime()
 {
     buttonState btn = useButton();
-    switch (btn)
-    {
+    switch (btn) {
     case Menu:
-    {
-        indexNumber = indexNumber + 1;
+        indexNumber += 1;
         checkMaxMinSetTime();
         drawThings();
         break;
-    }
     case Up:
-    {
         addNumbers(true);
         break;
-    }
     case Down:
-    {
         addNumbers(false);
         break;
     }
-    }
-
     disUp();
 }
 
@@ -134,4 +118,12 @@ void exitSetTime()
 {
     setTimeHour = String(String(oneNumber) + String(twoNumber)).toInt();
     setTimeMinute = String(String(threeNumber) + String(fourNumber)).toInt();
+
+    // Set RTC like NTP does
+    tmElements_t newTime = timeRTCUTC0; // get current time from RTC
+    newTime.Hour = setTimeHour;
+    newTime.Minute = setTimeMinute;
+    newTime.Second = 0; // clear seconds for manual set
+    saveRTC(newTime);
+    readRTC(); // update system time and timezone variables
 }
